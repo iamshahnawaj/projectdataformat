@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Project Data Formatter | Admin</title>
+<style>
+:root{color-scheme:light;--bg:#f4f7fb;--card:#fff;--ink:#152238;--muted:#65748b;--line:#dce4ef;--blue:#1769e0;--red:#b42318;--green:#067647}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}.wrap{max-width:900px;margin:38px auto;padding:0 16px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:0 8px 28px #1522380b;margin-bottom:16px}h1{font-size:24px;margin:0 0 6px}h2{font-size:18px;margin:0 0 14px}p{margin:6px 0;color:var(--muted)}label{display:block;font-weight:600;margin:12px 0 5px}input{width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:9px;font:inherit}button{padding:10px 14px;border-radius:9px;border:1px solid var(--line);background:#fff;color:var(--ink);font:inherit;font-weight:600;cursor:pointer}button.primary{background:var(--blue);border-color:var(--blue);color:white}button.danger{color:var(--red)}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.msg{min-height:22px;margin-top:10px;font-size:14px}.error{color:var(--red)}.success{color:var(--green)}.hidden{display:none!important}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.pill{font-size:12px;padding:4px 9px;border-radius:999px;background:#eaf2ff;color:#164ca0}.user{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 0;border-top:1px solid var(--line)}.small{font-size:12px}.notice{border-left:4px solid #e4a11b;background:#fff8e6;padding:12px;border-radius:8px;color:#664d03;font-size:13px}
+</style>
+</head>
+<body><div class="wrap">
+<section id="login" class="card">
+  <span class="pill">ADMIN ACCESS</span><h1>Project Data Formatter</h1><p>Enter the admin email to receive a one-time verification code.</p>
+  <label for="email">Admin email</label><input id="email" type="email" autocomplete="email" value="shahnawajstudent@gmail.com" readonly>
+  <div class="actions"><button id="send" class="primary">Send OTP</button></div>
+  <div id="msg1" class="msg" role="status" aria-live="polite"></div>
+  <div id="verifybox" class="hidden"><label for="otp">Email OTP code</label><input id="otp" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="Enter code from email"><div class="actions"><button id="verify" class="primary">Verify OTP and open Admin</button><button id="resend">Resend OTP</button></div><div id="msg2" class="msg" role="status" aria-live="polite"></div></div>
+</section>
+<section id="panel" class="hidden">
+ <div class="card"><div class="top"><div><h1>Admin Panel</h1><p>Signed in as <strong id="adminemail"></strong></p></div><button id="logout">Log out</button></div></div>
+ <div class="card"><h2>Add demo user</h2><p>Create an account for the existing browser-only formatter demo.</p><label for="newun">Username</label><input id="newun" autocomplete="off" placeholder="Enter username"><label for="newpw">Temporary password</label><input id="newpw" type="password" autocomplete="new-password" placeholder="Enter temporary password"><div class="actions"><button id="add" class="primary">Add user</button></div><div id="adminmsg" class="msg" role="status" aria-live="polite"></div></div>
+ <div class="card"><h2>Users in this browser</h2><div id="users"></div></div>
+ <div class="notice">Important: this admin page verifies your email through Supabase, but the user list is stored only in this browser's localStorage to match the current demo formatter. It is not a shared online user database, and client-side pages alone cannot provide full server-side admin security.</div>
+</section>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// Supabase public browser configuration. A publishable key is intended for browser use.
+const SUPABASE_URL = 'https://ayonwngqrgojtjwvsoxu.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_HxtWWN0Vx6jfQk9jxkEXJA_YkXxptsT';
+const ADMIN_EMAIL = 'shahnawajstudent@gmail.com';
+const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+});
+const $ = id => document.getElementById(id);
+function message(id, text, type='') { const el=$(id); el.textContent=text; el.className='msg '+type; }
+function showPanel(email) { $('login').classList.add('hidden'); $('panel').classList.remove('hidden'); $('adminemail').textContent=email; renderUsers(); }
+function getUsers(){ try { return JSON.parse(localStorage.getItem('pf_demo_users') || '[]'); } catch { return []; } }
+function saveUsers(users){ try { localStorage.setItem('pf_demo_users', JSON.stringify(users)); return true; } catch { return false; } }
+function renderUsers(){
+ const list=$('users'); list.replaceChildren(); const users=getUsers();
+ if(!users.length){list.textContent='No demo users created yet.';return;}
+ users.forEach((u,i)=>{
+   const row=document.createElement('div'); row.className='user';
+   const label=document.createElement('span'); label.textContent=u.username+' — '+(u.enabled===false?'Disabled':'Active');
+   const actions=document.createElement('div'); actions.className='actions'; actions.style.marginTop='0';
+   const toggle=document.createElement('button'); toggle.textContent=u.enabled===false?'Enable':'Disable'; toggle.onclick=()=>{const a=getUsers();a[i].enabled=a[i].enabled===false;saveUsers(a);renderUsers();};
+   const del=document.createElement('button'); del.className='danger'; del.textContent='Delete'; del.onclick=()=>{if(confirm('Delete user '+u.username+'?')){const a=getUsers();a.splice(i,1);saveUsers(a);renderUsers();}};
+   actions.append(toggle,del);row.append(label,actions);list.append(row);
+ });
+}
+async function sendOtp(){
+ const email=$('email').value.trim().toLowerCase();
+ if(email!==ADMIN_EMAIL){message('msg1','This email is not allowed for admin access.','error');return;}
+ $('send').disabled=true; message('msg1','Sending OTP…');
+ try {
+   const {error}=await client.auth.signInWithOtp({email, options:{shouldCreateUser:false}});
+   if(error) throw error;
+   $('verifybox').classList.remove('hidden');message('msg1','OTP requested. Check your email inbox and spam folder.','success');message('msg2','');
+ } catch(e){ message('msg1','Could not send OTP: '+(e.message||'Unknown error')+'. Confirm this admin email exists in Supabase Authentication → Users and that email OTP delivery is configured.','error'); }
+ finally {$('send').disabled=false;}
+}
+async function verifyOtp(){
+ const email=$('email').value.trim().toLowerCase(), token=$('otp').value.trim();
+ if(email!==ADMIN_EMAIL){message('msg2','This email is not allowed for admin access.','error');return;}
+ if(!token){message('msg2','Enter the OTP from your email.','error');return;}
+ $('verify').disabled=true;message('msg2','Verifying…');
+ try {
+   const {data,error}=await client.auth.verifyOtp({email,token,type:'email'});
+   if(error) throw error;
+   if(!data.user || (data.user.email||'').toLowerCase()!==ADMIN_EMAIL){await client.auth.signOut();throw new Error('This account is not the authorized admin.');}
+   showPanel(data.user.email);
+ } catch(e){message('msg2','Verification failed: '+(e.message||'Check the code and try again.'),'error');}
+ finally {$('verify').disabled=false;}
+}
+$('send').addEventListener('click',sendOtp);$('resend').addEventListener('click',sendOtp);$('verify').addEventListener('click',verifyOtp);
+$('otp').addEventListener('keydown',e=>{if(e.key==='Enter')verifyOtp();});
+$('add').addEventListener('click',async()=>{
+ const username=$('newun').value.trim(), password=$('newpw').value, msg='adminmsg';
+ if(!username||!password){message(msg,'Enter both username and password.','error');return;}
+ if(username.toLowerCase()==='demoadmin'){message(msg,'Choose a different username.','error');return;}
+ const users=getUsers();if(users.some(u=>u.username.toLowerCase()===username.toLowerCase())){message(msg,'That username already exists.','error');return;}
+ const bytes=new TextEncoder().encode(password);const digest=await crypto.subtle.digest('SHA-256',bytes);const hash=Array.from(new Uint8Array(digest)).map(b=>b.toString(16).padStart(2,'0')).join('');
+ users.push({username,passwordHash:hash,enabled:true});if(!saveUsers(users)){message(msg,'Could not save users in this browser.','error');return;}
+ $('newun').value='';$('newpw').value='';message(msg,'Demo user added in this browser.','success');renderUsers();
+});
+$('logout').addEventListener('click',async()=>{await client.auth.signOut();$('panel').classList.add('hidden');$('login').classList.remove('hidden');$('verifybox').classList.add('hidden');$('otp').value='';message('msg1','You have logged out.');});
+(async()=>{
+ const {data}=await client.auth.getSession(); const user=data.session?.user;
+ if(user && (user.email||'').toLowerCase()===ADMIN_EMAIL) showPanel(user.email);
+ else if(user) await client.auth.signOut();
+})();
+</script>
+</body></html>
